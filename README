@@ -1,3 +1,4 @@
+## Subroutines to generate figures in the paper
 # Figure 1
 Juno/MWR, HST comparison. Figure comes from M.W.
 
@@ -18,3 +19,11 @@ TEXES temperature anomaly
 ./plot_texes_anomaly.py
 
 # Figure 5
+
+## Auxiliary subroutines
+1. Convert MWR text data file to FITS file
+./write_mwr_grs_fits.py
+
+## Testing files
+./plot_profile_nh3.py --case=
+./plot_profile_temp.py --case=
