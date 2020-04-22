@@ -1,0 +1,20 @@
+# Figure 1
+Juno/MWR, HST comparison. Figure comes from M.W.
+
+# Figure 2
+Juno/MWR and EOS/VISIR, Gemini/TEXES comparison.
+./plot_mwr_texes_visir.py
+
+# Figure 3
+Juno/MWR latitude scan
+./plot_latitude_bt.py
+
+# Figure 4a
+GRS brightness temperature anomaly
+./plot_temperature_anomaly.py
+
+# Figure 4b
+TEXES temperature anomaly
+./plot_texes_anomaly.py
+
+# Figure 5
