@@ -1,129 +1,97 @@
 #! /usr/bin/env python3
-#import matplotlib
-#matplotlib.use('Agg')
-import argparse, h5py
-from netCDF4 import Dataset
-from pydrum.plots1d import PlotProfile, DrawPressureAxis
+import matplotlib
+matplotlib.use('Agg')
+import argparse 
 from scipy.interpolate import interp1d
-from glob import os, glob
+from pyathena.athena_read import athinput
 from pylab import *
 from pydrum.plots1d import *
+from pyfits.gpmcmc import *
 
-choices = []
-for x in glob('mwr-*.nc'):
-  choices.append(x.replace('mwr-','').replace('-main','').replace('-rad','').replace('.nc',''))
-choices = sort(unique(choices))
+def plot_profiles(case):
+  print('processing case %s ...' % case)
+  # read mcmc results
+  par, val, lnp, msk = read_mcmc_reduced(case)
+  T1, p1, z1, theta1, theta1v, h2o1, nh3a, tb1, ptb1 = read_baseline(case)
+  T3, nh3b = read_perturbed(case, msk)
+  T4, p4, rho4, theta4, theta4v, h2o4, nh3d, tb4 = read_rectified(case, msk)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--case',
-    default = 'none',
-    choices = choices,
-    help = 'name of the first netcdf file'
-    )
-parser.add_argument('--obs',
-    choices = glob('*.obs'),
-    help = 'name of observation file'
-    )
-parser.add_argument('--ref',
-    default = 'ma166k',
-    choices = choices,
-    help = 'name of observation file'
-    )
-args = vars(parser.parse_args())
+  # averaged rectified pressure and density
+  p4a = mean(p4, axis = 0)
+  rho4a = mean(rho4, axis = 0)
 
-data = Dataset('mwr-%s-main.nc' % args['case'], 'r')
-data.set_always_mask(False)
-T1 = data['temp'][0,0,0,:]
-T3 = data['temp'][:,0,2::4,:] - T1
-T4 = data['temp'][:,0,3::4,:]
+  # target and other tp data
+  inp = athinput(case + '.inp')
+  obsfile = inp['problem']['obsfile']
+  target = genfromtxt(obsfile, skip_header = 2, max_rows = 6)
+  try:
+    tpdata = genfromtxt(obsfile, skip_header = 36, max_rows = 6)
+  except:
+    tpdata = []
 
-theta1 = data['theta'][0,0,0,:]
-theta4 = data['theta'][:,0,3::4,:]
-theta4v = data['thetav'][:,0,3::4,:]
+  # interpolation function
+  lnpTfunc = interp1d(log(p1[::-1]), T1[::-1], bounds_error = False)
+  lnpNH3func = interp1d(log(p1[::-1]), nh3a[::-1], bounds_error = False)
 
-h2o1 = data['vapor1'][0,0,0,:]*1.E3
-h2o4 = data['vapor1'][:,0,3::4,:]*1.E3
+  # plot profiles
+  fig, axs = subplots(1, 4, figsize = (14,8), sharey = True)
+  subplots_adjust(wspace = 0.08, hspace = 0.08)
+  ax = axs[0]
+  ax.plot(T1, p1, 'C1')
+  ax.scatter(tb1, ptb1, s = 50, ec = 'C4', fc = 'none')
+  ax.set_xlabel('T (K)', fontsize = 15)
+  ax.set_xlim([100., 1500.])
+  ax.set_ylabel('Pressure (bar)', fontsize = 15)
+  ax.set_yscale('log')
+  ax.set_ylim([1.E3, 0.1])
 
-nh3a = data['vapor2'][0,0,0,:]*1.E3
-nh3b = data['vapor2'][:,0,1::4,:]*1.E3
+  ax2 = ax.twiny()
+  ax2.plot(h2o1, p1, 'C0')
+  ax2.plot(nh3a, p1, 'C2')
+  ax2.set_xscale('log')
+  ax2.set_xlim([0.1, 100.])
+  ax2.set_xlabel('mmr (g/kg)')
 
-x1 = data['x1'][:]/1.E3
-p1 = data['press'][0,0,0,:]/1.E5
-p4 = mean(data['press'][:,0,3::4,:], axis = (0,1))/1.E5
-TPfunc = interp1d(T1[::-1], p1[::-1], bounds_error = False)
-lnpTfunc = interp1d(log(p1[::-1]), T1[::-1], bounds_error = False)
-lnpNH3func = interp1d(log(p1[::-1]), nh3a[::-1], bounds_error = False)
+  ax = axs[1]
+  ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
+  #ax.plot(mean(nh3b, axis = 0) - lnpNH3func(log(p4a)), p4a, 'C2--')
+  PlotProfile(ax, nh3d - lnpNH3func(log(p4a)), p4a, 'C2')
+  ax.set_xlabel('Perturbed NH3 (g/kg)', fontsize = 15)
 
-data = Dataset('mwr-%s-rad.nc' % args['case'], 'r')
-tb1, tba = zeros(6), zeros(6)
-for b in range(6):
-  tb1[b]  = float(data['b%dtoa1' % (b+1,)][0,0,0])
-  tba[b] = mean(data['b%dtoa1' % (b+1,)][:,0,3::4]) - tb1[b]
-ptb1 = TPfunc(tb1)
+  ax = axs[2]
+  ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
+  #ax.plot(mean(T3, axis = 0) - lnpTfunc(log(p4a)), p4a, 'C1--')
+  PlotProfile(ax, T4 - lnpTfunc(log(p4a)), p4a, 'C1')
+  ax.scatter(mean(tb4, axis = 0) - tb1, ptb1, marker = 'x', s = 30, color = 'C3')
+  ax.errorbar(target[:,0] - tb1, ptb1, xerr = 0.02*target[:,0], fmt = 'none', color = 'C4', capsize = 5)
+  if len(tpdata) > 0:
+    ax.errorbar(tpdata[:,1] - lnpTfunc(log(tpdata[:,0])), tpdata[:,0], xerr = tpdata[:,2],
+      fmt = 'none', color = 'C6', capsize = 5)
+  ax.set_xlabel('Perturbed T (K)', fontsize = 15)
 
-target = genfromtxt(args['obs'], skip_header = 2, max_rows = 6)
+  ax = axs[3]
+  ax.plot(theta1, p1, '--', color = '0.7')
+  PlotProfile(ax, theta4, p4a, 'C1')
+  ax.plot(mean(theta4v, axis = 0), p4a, 'C1--')
+  ax.set_xlabel('Potential T (K)', fontsize = 15)
+  ax.set_xlim([150., 190.])
 
-data = Dataset('mwr-%s-main.nc' % args['ref'], 'r')
-ThetaRef = data['theta'][0,0,0,:]
+  ax2 = ax.twiny()
+  PlotProfile(ax2, h2o4, p4a, 'C0')
+  ax2.set_xlim([-5., 50.])
+  ax2.set_xlabel('mmr (g/kg)')
 
-# profiles
-os.system('mkdir -p %s' % args['case'])
+  savefig('mcmc_%s.png' % case, bbox_inches = 'tight')
+  savefig('mcmc_%s.pdf' % case, bbox_inches = 'tight')
+  close(fig)
 
-fig, axs = subplots(1, 4, figsize = (14,8), sharey = True)
-subplots_adjust(wspace = 0.08, hspace = 0.08)
-ax = axs[0]
-ax.plot(T1, p1, 'C1')
-ax.scatter(tb1, ptb1, s = 50, ec = 'C4', fc = 'none')
-ax.set_xlabel('T (K)', fontsize = 15)
-ax.set_xlim([100., 1500.])
-ax.set_ylabel('Pressure (bar)', fontsize = 15)
-ax.set_yscale('log')
-ax.set_ylim([1.E3, 0.1])
+  return T4 - lnpTfunc(log(p4a)), h2o4, nh3d, p4a, rho4a
 
-ax2 = ax.twiny()
-ax2.plot(h2o1, p1, 'C0')
-ax2.plot(nh3a, p1, 'C2')
-ax2.set_xscale('log')
-ax2.set_xlim([0.1, 100.])
-ax2.set_xlabel('mmr (g/kg)')
-
-trial = False
-
-ax = axs[1]
-ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
-if not trial:
-  PlotProfile(ax, nh3b - lnpNH3func(log(p4)), p4, 'C2')
-ax.set_xlabel('Perturbed NH3 (g/kg)', fontsize = 15)
-#ax.set_xlim([-1., 3.])
-
-ax = axs[2]
-ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
-if not trial:
-  PlotProfile(ax, T4 - lnpTfunc(log(p4)), p4, 'C1')
-  ax.scatter(tba, ptb1, marker = 'x', s = 30, color = 'C3')
-ax.errorbar(target[:,0] - tb1, ptb1, xerr = 0.01*(tb1-300.), fmt = 'none', color = 'C4', capsize = 5)
-ax.set_xlabel('Perturbed T (K)', fontsize = 15)
-ax.set_xlim([-20., 10.])
-
-ax = axs[3]
-ax.plot(theta1, p1, '--', color = '0.7')
-ax.plot(ThetaRef, p1, 'k')
-if not trial:
-  PlotProfile(ax, theta4, p4, 'C1')
-  #ax.plot(mean(theta4v, axis = (0,1)), p4, 'C1--')
-ax.scatter(175.*ones(6), ptb1, s = 50, ec = 'C4', fc = 'none')
-ax.set_xlabel('Potential T (K)', fontsize = 15)
-ax.set_xlim([160., 175.])
-
-ax2 = ax.twiny()
-if not trial:
-  PlotProfile(ax2, h2o4, p4, 'C0')
-ax2.set_xlim([-5., 50.])
-ax2.set_xlabel('mmr (g/kg)')
-
-if not trial:
-  savefig('%s/mcmc_%s.png' % (args['case'],args['case']), bbox_inches = 'tight')
-  savefig('%s/mcmc_%s.eps' % (args['case'],args['case']), bbox_inches = 'tight')
-else:
-  savefig('%s/mcmc_%s_base.png' % (args['case'],args['case']), bbox_inches = 'tight')
-  savefig('%s/mcmc_%s_base.eps' % (args['case'],args['case']), bbox_inches = 'tight')
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-c',
+      default = 'none',
+      help = 'name of the first netcdf file'
+      )
+  args = vars(parser.parse_args())
+  plot_profiles(args['c'])
