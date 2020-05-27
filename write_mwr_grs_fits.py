@@ -4,10 +4,10 @@ from astropy.io import fits
 
 version = 'v1906xx'
 chs = [0,1,2,3,4,5]
-latmin, latmax = -24, -16 # PC latitude
+latmin, latmax = -26, -13.7 # PC latitude
 freq = [0.6, 1.25, 2.6, 5.2, 10., 22.] # frequency in GHz
 
-nlat = 13
+nlat = 20
 coeff = zeros((nlat, 6, 3)) # 13 lats, 6 freqs, 3 coeffs
 cov = zeros((nlat, 6, 6)) # 13 lats, 6 freq, 3 covariance matrix coeffs
 for ch in chs:
@@ -50,5 +50,5 @@ hcov.header['NAXIS2'] = (6, 'CH1-6')
 hcov.header['NAXIS3'] = (nlat, 'PC latitudes')
 
 hdul = fits.HDUList([hdu, hcov, hlat, hlon])
-hdul.writeto('JunoMWR_coeffs_PJ1345689_m24-m16_avg.fits', overwrite = True)
-#hdul.writeto('JunoMWR_coeffs_PJ07_m24-m16_avg.fits', overwrite = True)
+hdul.writeto('JunoMWR_coeffs_PJ1345689_m26-m14_avg.fits', overwrite = True)
+#hdul.writeto('JunoMWR_coeffs_PJ07_m26-m14_avg.fits', overwrite = True)

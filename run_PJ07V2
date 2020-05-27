@@ -1,0 +1,55 @@
+#! /bin/bash
+
+folder=2003b.JunoGRS
+name=$0
+name_split=(${name//_/ })
+case=${name_split[1]}
+relay=wirbel:/home/cli/$folder
+pj=PJ07
+base=None
+basecase=None
+
+# Fitting the observation of PJ07
+# using 8 levels and 64 chains
+# from PC latitude -24 ~ -16
+# increase IR error to 2 K, try \theta = 168
+# updated covariance matrix
+
+# This illustrates the inversion work flow
+echo "#############################################################" > log.$case
+echo "###### INVERSION BEGIN `date` ######" >> log.$case
+echo "#############################################################" >> log.$case
+
+# Step 1: create observations files
+./create_observations.py --pj=$pj --base=$base --case=$basecase >> log.$case
+
+# Step 2: send observation files to relay machine
+rsync -auv ./mwr_${pj}_*.obs $relay >> log.$case
+echo `date` > com.$case
+scp com.$case $relay
+
+# Step 3: copy observation files to cluster:
+# execute on cluster e.g. ./run_$case &
+# and wait for results to finish
+while true ; do
+  scp -q $relay/log.$case log.tmp 2> log.err && break
+  sleep 5m
+done
+cat log.tmp >> log.$case
+rm -f log.tmp
+rm -f log.err
+
+# Step 4: recieve results from relay machine
+mkdir -p $case
+rsync -auv $relay/$case/ $case >> log.$case
+
+# Step 5: do analysis
+cd $case
+ln -s ../plot_mcmc.py ./
+ln -s ../plot_map2d.py ./
+./plot_map2d.py >> ../log.$case
+cd ..
+rm -f com.$case
+echo "#############################################################" >> log.$case
+echo "###### INVERSION END   `date` ######" >> log.$case
+echo "#############################################################" >> log.$case

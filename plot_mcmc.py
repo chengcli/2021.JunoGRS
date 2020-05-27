@@ -16,14 +16,21 @@ def plot_profiles(case):
   T3, nh3b = read_perturbed(case, msk)
   T4, p4, rho4, theta4, theta4v, h2o4, nh3d, tb4 = read_rectified(case, msk)
 
+  lnp = lnp[where(msk == 1)[0]]
+  wght = exp(lnp - lnp.max())
+
   # averaged rectified pressure and density
-  p4a = mean(p4, axis = 0)
-  rho4a = mean(rho4, axis = 0)
+  p4a = average(p4, axis = 0, weights = wght)
+  rho4a = average(rho4, axis = 0, weights = wght)
 
   # target and other tp data
   inp = athinput(case + '.inp')
   obsfile = inp['problem']['obsfile']
-  target = genfromtxt(obsfile, skip_header = 2, max_rows = 6)
+  try:
+    target = genfromtxt(obsfile, skip_header = 2, max_rows = 6)
+  except:
+    target = genfromtxt(obsfile, skip_header = 4, max_rows = 6)
+
   try:
     tpdata = genfromtxt(obsfile, skip_header = 36, max_rows = 6)
   except:
@@ -54,16 +61,17 @@ def plot_profiles(case):
 
   ax = axs[1]
   ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
-  #ax.plot(mean(nh3b, axis = 0) - lnpNH3func(log(p4a)), p4a, 'C2--')
-  PlotProfile(ax, nh3d - lnpNH3func(log(p4a)), p4a, 'C2')
+  #ax.plot(average(nh3b, axis = 0, weights = wght) - lnpNH3func(log(p4a)), p4a, 'C2--')
+  PlotProfile(ax, nh3d - lnpNH3func(log(p4a)), p4a, 'C2', weights = wght)
   ax.set_xlabel('Perturbed NH3 (g/kg)', fontsize = 15)
 
   ax = axs[2]
   ax.plot([0., 0.], [1.E3, 0.1], '--', color = '0.7')
-  #ax.plot(mean(T3, axis = 0) - lnpTfunc(log(p4a)), p4a, 'C1--')
-  PlotProfile(ax, T4 - lnpTfunc(log(p4a)), p4a, 'C1')
-  ax.scatter(mean(tb4, axis = 0) - tb1, ptb1, marker = 'x', s = 30, color = 'C3')
-  ax.errorbar(target[:,0] - tb1, ptb1, xerr = 0.02*target[:,0], fmt = 'none', color = 'C4', capsize = 5)
+  #ax.plot(average(T3, axis = 0, weights = wght) - lnpTfunc(log(p4a)), p4a, 'C1--')
+  PlotProfile(ax, T4 - lnpTfunc(log(p4a)), p4a, 'C1', weights = wght)
+  ax.scatter(average(tb4, axis = 0, weights = wght) - tb1, ptb1, marker = 'x', s = 30, color = 'C3')
+  ax.errorbar(target[:,0] - tb1, ptb1, xerr = 0.01*(target[:,0]-300.) + 0.01*target[:,0],
+    fmt = 'none', color = 'C4', capsize = 5)
   if len(tpdata) > 0:
     ax.errorbar(tpdata[:,1] - lnpTfunc(log(tpdata[:,0])), tpdata[:,0], xerr = tpdata[:,2],
       fmt = 'none', color = 'C6', capsize = 5)
@@ -72,12 +80,12 @@ def plot_profiles(case):
   ax = axs[3]
   ax.plot(theta1, p1, '--', color = '0.7')
   PlotProfile(ax, theta4, p4a, 'C1')
-  ax.plot(mean(theta4v, axis = 0), p4a, 'C1--')
+  ax.plot(average(theta4v, axis = 0, weights = wght), p4a, 'C1--')
   ax.set_xlabel('Potential T (K)', fontsize = 15)
   ax.set_xlim([150., 190.])
 
   ax2 = ax.twiny()
-  PlotProfile(ax2, h2o4, p4a, 'C0')
+  PlotProfile(ax2, h2o4, p4a, 'C0', weights = wght)
   ax2.set_xlim([-5., 50.])
   ax2.set_xlabel('mmr (g/kg)')
 
@@ -85,7 +93,7 @@ def plot_profiles(case):
   savefig('mcmc_%s.pdf' % case, bbox_inches = 'tight')
   close(fig)
 
-  return T4 - lnpTfunc(log(p4a)), h2o4, nh3d, p4a, rho4a
+  return T4 - lnpTfunc(log(p4a)), h2o4, nh3d, p4a, rho4a, wght
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

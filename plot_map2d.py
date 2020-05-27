@@ -2,8 +2,7 @@
 import matplotlib
 matplotlib.use('Agg')
 from scipy.interpolate import interp1d
-from glob import glob
-from pyathena.athena_read import athinput
+from pyathena.utils import *
 from pydrum.plots1d import *
 from pylab import *
 from plot_mcmc import *
@@ -12,16 +11,16 @@ from multiprocessing import Pool
 
 lats, tps, h2os, nh3s, pres, rhos = [], [], [], [], [], []
 
-files = glob('mwr*.fits')
+files = glob.glob('mwr*.fits')
 cases = [fname[:-5] for fname in files]
-with Pool(8) as p:
+with Pool(3) as p:
   results = p.map(plot_profiles, cases)
 
 for i, v in enumerate(results):
   lats.append(parse_signed(cases[i]))
-  tps.append(mean(v[0], axis = 0))
-  h2os.append(mean(v[1], axis = 0))
-  nh3s.append(mean(v[2], axis = 0))
+  tps.append(average(v[0], axis = 0, weights = v[5]))
+  h2os.append(average(v[1], axis = 0, weights = v[5]))
+  nh3s.append(average(v[2], axis = 0, weights = v[5]))
   pres.append(v[3])
   rhos.append(v[4])
 
@@ -43,15 +42,26 @@ rhos = rhos[ix,:]
 output = re.sub('_[mp]\d+\.\d*', '', cases[0])
 output = re.sub('mwr', 'profile', output)
 
+# interpolation to constant pressure
+pavg = mean(pres, axis = 0)
+
+for i in range(len(lats)):
+  Tfunc = interp1d(log(pres[i,::-1]), tps[i,::-1], 
+    bounds_error = False, fill_value = 'extrapolate')
+  tps[i,:] = Tfunc(log(pavg))
+  NH3func = interp1d(log(pres[i,::-1]), nh3s[i,::-1], 
+    bounds_error = False, fill_value = 'extrapolate')
+  nh3s[i,:] = NH3func(log(pavg))
+
 # ammonia map
-X, Y = meshgrid(lats, mean(pres, axis = 0))
+X, Y = meshgrid(lats, pavg)
 figure(1, figsize = (10, 8))
 ax = axes()
 h = ax.contourf(X, Y, nh3s.T, linspace(0, 400, 21), cmap = 'inferno')
 c = colorbar(h)
 c.ax.invert_yaxis()
 ax.set_yscale('log')
-ax.set_ylim([100., 0.5])
+ax.set_ylim([100., 0.3])
 ax.set_xlabel('PC latitude', fontsize = 15)
 ax.set_ylabel('Pressure (bar)', fontsize = 15)
 savefig('%s_ammonia2d.png' % output, bbox_inches = 'tight')
@@ -65,8 +75,8 @@ ax = axes()
 #clabel(h1, fontsize = 12, inline = 1, fmt = '%.1f')
 #h2 = ax.contour(X, Y, tps.T, linspace(1, 21, 11), colors = 'r')
 #clabel(h2, fontsize = 12, inline = 1, fmt = '%.1f')
-h = ax.contourf(X, Y, tps.T, linspace(-5, 11, 9), cmap = 'OrRd')
-ax.contour(X, Y, tps.T, [0.], colors = '0.7', linewidths = 4)
+h = ax.contourf(X, Y, tps.T, linspace(-5, 11, 17), cmap = 'OrRd')
+#ax.contour(X, Y, tps.T, [0.], colors = '0.7', linewidths = 4)
 c = colorbar(h)
 ax.set_yscale('log')
 ax.set_ylim([100., 0.3])
