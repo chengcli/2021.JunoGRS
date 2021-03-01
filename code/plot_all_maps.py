@@ -39,13 +39,9 @@ def plot_map_pair(ax1, ax2, lats, pres, nh3s, tps):
       bounds_error = False, fill_value = 'extrapolate')
     nh3s[i,:] = NH3func(log(pavg))
 
-  # diverging colormap
-  mymap = import_ncl_cmap('CBR_coldhot')
-
   # ammonia map
   X, Y = meshgrid(lats, pavg)
-  #h1 = ax1.contourf(X, Y, nh3s.T, linspace(40, 360, 17),
-  #  cmap = 'inferno', extend = 'min')
+  #h1 = ax1.contourf(X, Y, nh3s.T, linspace(0, 400, 21), cmap = 'inferno')
   h1 = ax1.contourf(X, Y, nh3s.T, linspace(-100, 100, 17),
     cmap = 'coolwarm', extend = 'both')
   ax1.contour(X, Y, nh3s.T, [0.], linewidths = 2, colors = '0.7')
@@ -59,11 +55,12 @@ def plot_map_pair(ax1, ax2, lats, pres, nh3s, tps):
   ax1.tick_params(axis = 'x', labelsize = 18, labelbottom = False)
 
   # temperature map
+  mymap = import_ncl_cmap('CBR_coldhot')
+
   #h2 = ax2.contourf(X, Y, tps.T, linspace(-5, 11, 17), cmap = 'OrRd')
-  h2 = ax2.contourf(X, Y, tps.T, linspace(-7, 7, 8), cmap = mymap, vmin = -11, vmax =
+  h2 = ax2.contourf(X, Y, tps.T, linspace(-5, 11, 17), cmap = mymap, vmin = -11, vmax =
   11, extend = 'max')
   ax2.contour(X, Y, tps.T, [-1, 1], colors = 'k', linewidths = 1)
-  #h2 = ax2.contourf(X, Y, tps.T, linspace(-10, 10, 11), cmap = 'RdBu_r', extend = 'max')
   ax2.plot([-24, -24], [100., 0.3], 'C4', linewidth = 1)
   ax2.plot([-16, -16], [100., 0.3], 'C4', linewidth = 1)
   ax2.plot([-20, -20], [100., 0.3], 'C4--', linewidth = 1)
@@ -116,7 +113,7 @@ if __name__ == '__main__':
   subplots_adjust(hspace = 0.08, wspace = 0.04)
   fname = 'profile_PJ07_2.7x20.x168.fits'
 
-  hdul = fits.open('../PJ07BOOSTV3/' + fname)
+  hdul = fits.open('../PJ07V3/' + fname)
   nh3s = hdul[0].data/2.7*350. - nh3_jets
   tps = hdul[2].data
   lats = hdul[3].data
@@ -125,7 +122,7 @@ if __name__ == '__main__':
   axs[1,0].text(-25.5, 80., '(a)', fontsize = 24)
   axs[1,1].text(-25.5, 80., '(b)', fontsize = 24)
 
-  hdul = fits.open('../PJ07BOOST.Tstd2/' + fname)
+  hdul = fits.open('../PJ07.Tstd2/' + fname)
   nh3s = hdul[0].data/2.7*350. - nh3_jets
   tps = hdul[2].data
   lats = hdul[3].data
@@ -134,7 +131,7 @@ if __name__ == '__main__':
   axs[2,0].text(-25.5, 80., '(c)', fontsize = 24)
   axs[2,1].text(-25.5, 80., '(d)', fontsize = 24)
 
-  hdul = fits.open('../PJ07BOOST.Tstd1/' + fname)
+  hdul = fits.open('../PJ07.Tstd1/' + fname)
   nh3s = hdul[0].data/2.7*350. - nh3_jets
   tps = hdul[2].data
   lats = hdul[3].data
@@ -147,7 +144,7 @@ if __name__ == '__main__':
   colorbar(h2, cax = axs[4,1], orientation = 'horizontal')
   axs[4,0].set_xlabel('NH$_3$ mixing ratio anomaly (ppmv)', fontsize = 24)
   axs[4,0].tick_params(axis = 'x', labelsize = 18)
-  axs[4,1].set_xlabel("Temperature anomaly (K)", fontsize = 24)
+  axs[4,1].set_xlabel("T' (K)", fontsize = 24)
   axs[4,1].tick_params(axis = 'x', labelsize = 18)
 
   #axs[3,0].set_xlabel('Planetocentric latitude', fontsize = 15)
@@ -156,15 +153,15 @@ if __name__ == '__main__':
   axs[2,0].set_ylabel('$\sigma(T) = 2 K$\n Pressure (bar)', fontsize = 20)
   axs[3,0].set_ylabel('$\sigma(T) = 1 K$\n Pressure (bar)', fontsize = 20)
 
-  chi2 = get_chi2('../PJ07BOOSTV3')
+  chi2 = get_chi2('../PJ07V3')
   axs[0,0].plot(lats, chi2, 'C0')
   axs[0,1].plot(lats, chi2, 'C0')
 
-  chi2 = get_chi2('../PJ07BOOST.Tstd2')
+  chi2 = get_chi2('../PJ07.Tstd2')
   axs[0,0].plot(lats, chi2, 'C1')
   axs[0,1].plot(lats, chi2, 'C1')
 
-  chi2 = get_chi2('../PJ07BOOST.Tstd1')
+  chi2 = get_chi2('../PJ07.Tstd1')
   axs[0,0].plot(lats, chi2, 'C2')
   axs[0,1].plot(lats, chi2, 'C2')
 
@@ -181,6 +178,6 @@ if __name__ == '__main__':
   axs[0,0].set_ylabel('Residual (K)', fontsize = 20)
   axs[0,1].set_yticklabels([])
 
-  savefig('../figs/PJ07BOOST_result_F4.png', bbox_inches = 'tight')
-  savefig('../figs/PJ07BOOST_result_F4.pdf', bbox_inches = 'tight')
+  savefig('../figs/PJ07_result_S6.png', bbox_inches = 'tight')
+  savefig('../figs/PJ07_result_S6.pdf', bbox_inches = 'tight')
   close()
